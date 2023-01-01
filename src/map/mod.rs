@@ -1,8 +1,10 @@
+pub mod loading;
 pub mod picking;
 pub mod province;
 pub mod render;
 pub mod town;
 
+pub use loading::MapLoadState;
 pub use province::ProvinceMap;
 
 use crate::dom_ui::*;
@@ -24,30 +26,25 @@ impl Plugin for MapPlugin {
         app.init_resource::<SelectedProvince>()
             .init_resource::<HoveredProvince>()
             .init_resource::<player::HoveredPlayer>()
-            .add_systems(
-                Startup,
-                (
-                    load_province_map,
-                    load_towns,
-                    setup_map_layers,
-                    // setup_towns
-                )
-                    .chain(),
-            ) // chain ensures load runs before setup
+            .init_state::<MapLoadState>()
+            .init_asset::<loading::GeoJsonSource>()
+            .init_asset_loader::<loading::GeoJsonAssetLoader>()
+            .add_systems(Startup, loading::begin_loading_map_data)
+            .add_systems(OnEnter(MapLoadState::Ready), setup_map_layers)
             .add_systems(
                 Update,
                 (
-                    picking::province_picking_system,
+                    loading::check_map_data_loaded.run_if(in_state(MapLoadState::Loading)),
+                    picking::province_picking_system.run_if(in_state(MapLoadState::Ready)),
                     render::update_province_colours,
                     player::player_hover_system,
-                    player::update_player_marker,
+                    player::update_player_marker.run_if(in_state(MapLoadState::Ready)),
                 ),
             );
     }
 }
 
-pub fn load_towns(mut commands: Commands) {
-    let geojson_str = include_str!("../../assets/towns.geojson");
+pub fn parse_towns_geojson(geojson_str: &str) -> Vec<TownDef> {
     let geojson: GeoJson = geojson_str.parse().expect("Could not parse towns.geojson");
 
     let feature_collection = match geojson {
@@ -55,15 +52,12 @@ pub fn load_towns(mut commands: Commands) {
         _ => panic!("Expected a FeatureCollection"),
     };
 
-    let towns: Vec<TownDef> = feature_collection
+    feature_collection
         .features
         .into_iter()
         .enumerate()
         .filter_map(|(i, f)| parse_town_feature(f, i as u32))
-        .collect();
-
-    println!("Loaded {} towns", towns.len());
-    commands.insert_resource(TownMap { towns });
+        .collect()
 }
 
 #[derive(Component)]
@@ -96,9 +90,7 @@ fn parse_town_feature(feature: Feature, id: u32) -> Option<TownDef> {
     })
 }
 
-pub fn load_province_map(mut commands: Commands) {
-    let geojson_str = include_str!("../../assets/political.geojson");
-
+pub fn parse_provinces_geojson(geojson_str: &str) -> Vec<ProvinceDef> {
     let geojson: GeoJson = geojson_str
         .parse()
         .expect("Could not parse provinces.geojson");
@@ -117,8 +109,7 @@ pub fn load_province_map(mut commands: Commands) {
     }
 
     compute_neighbors(&mut provinces);
-    println!("Loaded {} provinces", provinces.len());
-    commands.insert_resource(ProvinceMap { provinces });
+    provinces
 }
 
 // After all provinces are loaded, compute neighbors by finding provinces that share

@@ -5,23 +5,24 @@ use crate::action_queue::WeekQueue;
 use crate::buildings::Building;
 use crate::buildings::BuildingRegistry;
 use crate::buildings::ProvinceBuildingIndex;
-use crate::dom_ui::assets::BuildingTextureIds;
 use crate::dom_ui::assets::apply_parchment_theme;
 use crate::dom_ui::assets::load_ui_assets;
 use crate::dom_ui::assets::register_ui_textures;
+use crate::dom_ui::assets::BuildingTextureIds;
 use crate::dom_ui::building_detail::{
-    CharacterPickerOpen, SelectedBuilding, building_detail_ui, character_picker_ui,
+    building_detail_ui, character_picker_ui, CharacterPickerOpen, SelectedBuilding,
 };
 use crate::dom_ui::clock_ui::clock_ui;
 use crate::dom_ui::week_queue::{execute_queued_action, week_queue_ui};
-use crate::map::ProvinceMap;
 use crate::map::province::SelectedProvince;
+use crate::map::MapLoadState;
+use crate::map::ProvinceMap;
 use crate::player::CharacterIdentity;
 use crate::player::HoveredPlayer;
 use crate::player::Location;
 use crate::player::PlayerCharacter;
 use crate::ticker::DailyTickSet;
-use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
+use bevy_egui::{egui, EguiContexts, EguiPrimaryContextPass};
 
 pub mod assets;
 pub mod building_detail;
@@ -42,11 +43,11 @@ impl Plugin for DomUIPlugin {
             .add_systems(
                 EguiPrimaryContextPass,
                 (
-                    selected_province_ui,
+                    selected_province_ui.run_if(in_state(MapLoadState::Ready)),
                     building_detail_ui,
                     character_picker_ui,
                     player_hover_ui,
-                    week_queue_ui,
+                    week_queue_ui.run_if(in_state(MapLoadState::Ready)),
                     clock_ui,
                 ),
             )
