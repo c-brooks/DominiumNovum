@@ -20,6 +20,8 @@ else
 fi
 
 echo "Copying assets..."
-cp -r assets web/assets
+rm -rf web/assets
+mkdir -p web/assets
+cp -r assets/. web/assets/
 
 echo "Done — web/ is ready to deploy"

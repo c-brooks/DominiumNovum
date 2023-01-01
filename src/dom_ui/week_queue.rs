@@ -18,7 +18,7 @@ pub fn week_queue_ui(
         return;
     };
     egui::Area::new("week_plan".into())
-        .fixed_pos(egui::pos2(100.0, 800.0))
+        .anchor(egui::Align2::LEFT_BOTTOM, egui::vec2(10.0, -10.0))
         .show(ctx, |ui| {
             ui.vertical(|ui| {
                 // Day slots row

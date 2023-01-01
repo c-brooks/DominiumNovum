@@ -1,6 +1,7 @@
 // src/main.rs
 mod action_queue;
 mod buildings;
+mod characters;
 mod dom_ui;
 mod inputevents;
 mod map;
@@ -13,6 +14,7 @@ use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_prototype_lyon::prelude::*;
 use buildings::BuildingsPlugin;
+use characters::CharactersPlugin;
 use dom_ui::DomUIPlugin;
 use inputevents::*;
 use map::MapPlugin;
@@ -39,6 +41,7 @@ fn main() -> AppExit {
             DomUIPlugin,
             BuildingsPlugin,
             TickerPlugin,
+            CharactersPlugin,
         ))
         .init_resource::<WeekQueue>()
         .add_systems(

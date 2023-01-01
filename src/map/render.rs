@@ -51,7 +51,7 @@ pub fn setup_map_layers(
                     settings
                         .sampler
                         .get_or_init_descriptor()
-                        .set_filter(bevy::image::ImageFilterMode::Nearest);
+                        .set_filter(bevy::image::ImageFilterMode::Linear);
                 },
             ),
             custom_size: Some(Vec2::new(width, height)),

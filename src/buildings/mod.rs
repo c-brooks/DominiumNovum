@@ -30,6 +30,7 @@ pub struct Building {
     pub kind: BuildingKind,
     pub level: u8,
     pub location: BuildingLocation,
+    pub manager: Option<bevy::ecs::entity::Entity>,
 }
 
 #[derive(Component)]
@@ -130,15 +131,12 @@ fn register_buildings(mut commands: Commands) {
     println!("Registered buildings: {:?}", registry.keys());
     commands.insert_resource(BuildingRegistry(registry));
 
-    let province_id = 18;
     let farm_id = commands
         .spawn(Building {
             kind: BuildingKind::Farm,
             level: 1,
-            location: BuildingLocation {
-                province_id,
-                town_id: None,
-            },
+            location: BuildingLocation { province_id: 18, town_id: None },
+            manager: None,
         })
         .id();
 
@@ -146,20 +144,44 @@ fn register_buildings(mut commands: Commands) {
         .spawn(Building {
             kind: BuildingKind::Mine,
             level: 2,
-            location: BuildingLocation {
-                province_id,
-                town_id: None,
-            },
+            location: BuildingLocation { province_id: 18, town_id: None },
+            manager: None,
         })
         .id();
 
     let mut pbi = ProvinceBuildingIndex::default();
     pbi.buildings
-        .entry(province_id)
+        .entry(18)
         .or_insert_with(Vec::new)
         .extend(vec![farm_id, mine_id]);
 
-    commands.insert_resource(pbi);
-    println!("Spawned seed buildings in province {}", province_id);
-}
+    let sawmill_id = commands
+        .spawn(Building {
+            kind: BuildingKind::Sawmill,
+            level: 1,
+            location: BuildingLocation { province_id: 142, town_id: None },
+            manager: None,
+        })
+        .id();
 
+    let barracks_id = commands
+        .spawn(Building {
+            kind: BuildingKind::Barracks,
+            level: 1,
+            location: BuildingLocation { province_id: 142, town_id: None },
+            manager: None,
+        })
+        .id();
+
+    pbi.buildings
+        .entry(142)
+        .or_insert_with(Vec::new)
+        .push(sawmill_id);
+    pbi.buildings
+        .entry(142)
+        .or_insert_with(Vec::new)
+        .push(barracks_id);
+
+    commands.insert_resource(pbi);
+    println!("Spawned seed buildings");
+}

@@ -6,6 +6,7 @@ use bevy_egui::EguiTextureHandle;
 use bevy_egui::{EguiContexts, egui};
 
 use crate::buildings::BuildingKind;
+use crate::characters::CharacterPortrait;
 
 #[derive(Resource)]
 pub struct UiAssets {
@@ -23,6 +24,12 @@ pub struct BuildingTextureIds(pub HashMap<BuildingKind, egui::TextureId>);
 #[derive(Resource)]
 pub struct BuildingIconAssets(pub HashMap<BuildingKind, Handle<Image>>);
 
+#[derive(Resource)]
+pub struct CharacterPortraitAssets(pub HashMap<CharacterPortrait, Handle<Image>>);
+
+#[derive(Resource)]
+pub struct CharacterPortraitIds(pub HashMap<CharacterPortrait, egui::TextureId>);
+
 pub fn load_ui_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut icons = HashMap::new();
     icons.insert(BuildingKind::Farm, asset_server.load("buildings/farm.png"));
@@ -37,6 +44,14 @@ pub fn load_ui_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     );
     commands.insert_resource(BuildingIconAssets(icons));
 
+    let mut portraits = HashMap::new();
+    portraits.insert(CharacterPortrait::Baker, asset_server.load("characters/baker.png"));
+    portraits.insert(CharacterPortrait::Commander, asset_server.load("characters/commander.png"));
+    portraits.insert(CharacterPortrait::Doctor, asset_server.load("characters/doctor.png"));
+    portraits.insert(CharacterPortrait::Guildmaster, asset_server.load("characters/guildmaster.png"));
+    portraits.insert(CharacterPortrait::Lumberjack, asset_server.load("characters/lumberjack.png"));
+    commands.insert_resource(CharacterPortraitAssets(portraits));
+
     commands.insert_resource(UiAssets {
         parchment: asset_server.load("parchment.png"),
     });
@@ -46,6 +61,7 @@ pub fn register_ui_textures(
     mut contexts: EguiContexts,
     ui_assets: Res<UiAssets>,
     building_icons: Res<BuildingIconAssets>,
+    portrait_assets: Res<CharacterPortraitAssets>,
     mut commands: Commands,
 ) {
     let parchment = contexts.add_image(EguiTextureHandle::Strong(ui_assets.parchment.clone()));
@@ -60,6 +76,16 @@ pub fn register_ui_textures(
         })
         .collect();
     commands.insert_resource(BuildingTextureIds(ids));
+
+    let portrait_ids = portrait_assets
+        .0
+        .iter()
+        .map(|(&portrait, handle)| {
+            let id = contexts.add_image(EguiTextureHandle::Strong(handle.clone()));
+            (portrait, id)
+        })
+        .collect();
+    commands.insert_resource(CharacterPortraitIds(portrait_ids));
 }
 
 pub fn apply_parchment_theme(ctx: &egui::Context, font_definitions: egui::FontDefinitions) {

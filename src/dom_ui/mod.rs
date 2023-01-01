@@ -9,6 +9,9 @@ use crate::dom_ui::assets::BuildingTextureIds;
 use crate::dom_ui::assets::apply_parchment_theme;
 use crate::dom_ui::assets::load_ui_assets;
 use crate::dom_ui::assets::register_ui_textures;
+use crate::dom_ui::building_detail::{
+    CharacterPickerOpen, SelectedBuilding, building_detail_ui, character_picker_ui,
+};
 use crate::dom_ui::clock_ui::clock_ui;
 use crate::dom_ui::week_queue::{execute_queued_action, week_queue_ui};
 use crate::map::ProvinceMap;
@@ -21,6 +24,7 @@ use crate::ticker::DailyTickSet;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 
 pub mod assets;
+pub mod building_detail;
 pub mod buildings;
 pub mod clock_ui;
 pub mod week_queue;
@@ -29,23 +33,27 @@ pub struct DomUIPlugin;
 
 impl Plugin for DomUIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Startup,
-            (load_ui_assets, setup_egui_theme, register_ui_textures).chain(),
-        )
-        .add_systems(
-            EguiPrimaryContextPass,
-            (
-                selected_province_ui,
-                player_hover_ui,
-                week_queue_ui,
-                clock_ui,
-            ),
-        )
-        .add_systems(
-            Update,
-            execute_queued_action.in_set(DailyTickSet::Production),
-        );
+        app.init_resource::<SelectedBuilding>()
+            .init_resource::<CharacterPickerOpen>()
+            .add_systems(
+                Startup,
+                (load_ui_assets, setup_egui_theme, register_ui_textures).chain(),
+            )
+            .add_systems(
+                EguiPrimaryContextPass,
+                (
+                    selected_province_ui,
+                    building_detail_ui,
+                    character_picker_ui,
+                    player_hover_ui,
+                    week_queue_ui,
+                    clock_ui,
+                ),
+            )
+            .add_systems(
+                Update,
+                execute_queued_action.in_set(DailyTickSet::Production),
+            );
     }
 }
 
@@ -85,10 +93,15 @@ pub fn selected_province_ui(
     building_texture_ids: Res<BuildingTextureIds>,
     mut week_queue: ResMut<WeekQueue>,
     player_location: Query<&Location, With<PlayerCharacter>>,
+    mut selected_building: ResMut<SelectedBuilding>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
     };
+
+    if selected.is_changed() {
+        selected_building.0 = None;
+    }
 
     if let Some(province_id) = selected.0 {
         if let Some(province) = province_map.get(province_id) {
@@ -117,7 +130,7 @@ pub fn selected_province_ui(
                     .corner_radius(egui::CornerRadius::same(20))
                     .paint_at(ui, rect);
 
-                    ui.scope_builder(egui::UiBuilder::new().max_rect(rect), |ui| {
+                    ui.scope_builder(egui::UiBuilder::new().max_rect(rect.shrink(12.0)), |ui| {
                         ui.vertical_centered(|ui| {
                             ui.add_space(8.0);
                             ui.label(
@@ -137,37 +150,54 @@ pub fn selected_province_ui(
                                 }
                             }
                         });
-                    });
-                    if let Some(building_entities) = buildings.buildings.get(&province_id) {
-                        ui.add_space(12.0);
-                        ui.label(
-                            egui::RichText::new("Building:")
-                                .font(egui::FontId::proportional(18.0))
-                                .size(18.0)
-                                .strong(),
-                        );
-                        for entity in building_entities {
-                            if let Ok(building) = building_query.get(*entity) {
-                                if let Some(def) = building_registry.0.get(&building.kind) {
-                                    ui.horizontal(|ui| {
-                                        buildings::building_icon(
-                                            ui,
-                                            building.kind,
-                                            32.0,
-                                            &building_texture_ids,
+                        if let Some(building_entities) = buildings.buildings.get(&province_id) {
+                            ui.add_space(8.0);
+                            ui.label(
+                                egui::RichText::new("Buildings:")
+                                    .font(egui::FontId::proportional(18.0))
+                                    .size(18.0)
+                                    .strong(),
+                            );
+                            for entity in building_entities {
+                                if let Ok(building) = building_query.get(*entity) {
+                                    if let Some(def) = building_registry.0.get(&building.kind) {
+                                        let row = ui.horizontal(|ui| {
+                                            buildings::building_icon(
+                                                ui,
+                                                building.kind,
+                                                32.0,
+                                                &building_texture_ids,
+                                            );
+                                            ui.label(
+                                                egui::RichText::new(format!(
+                                                    "{} Lv. {}",
+                                                    def.name, building.level
+                                                ))
+                                                .color(egui::Color32::BLACK),
+                                            );
+                                        });
+                                        let click = ui.interact(
+                                            row.response.rect,
+                                            egui::Id::new(entity),
+                                            egui::Sense::click(),
                                         );
-                                        ui.label(
-                                            egui::RichText::new(format!(
-                                                "{} Lv. {}",
-                                                def.name, building.level
-                                            ))
-                                            .color(egui::Color32::BLACK),
-                                        );
-                                    });
+                                        if click.clicked() {
+                                            selected_building.0 = Some(*entity);
+                                        }
+                                        click.on_hover_ui(|ui| {
+                                            ui.label(egui::RichText::new(def.name).strong());
+                                            ui.label(format!(
+                                                "Level: {} / {}",
+                                                building.level, def.max_level
+                                            ));
+                                            ui.label(format!("Gold/day: {}", def.gold_per_day));
+                                            ui.label(format!("Max staff: {}", def.max_staff));
+                                        });
+                                    }
                                 }
                             }
                         }
-                    }
+                    });
                 });
         }
     }
