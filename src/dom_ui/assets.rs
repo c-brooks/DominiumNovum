@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+// Removed incorrect import: use bevy::text::FontSource;
+use bevy::text::*;
 use bevy_egui::{EguiContexts, egui};
 
 #[derive(Resource)]
@@ -17,34 +19,6 @@ pub fn load_ui_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-pub fn register_ui_fonts(mut contexts: EguiContexts) {
-    let Ok(ctx) = contexts.ctx_mut() else {
-        return;
-    };
-
-    let regular = std::fs::read("assets/fonts/IMFellEnglish-Regular.ttf")
-        .expect("Failed to read IMFellEnglish-Regular.ttf");
-    let italic = std::fs::read("assets/fonts/IMFellEnglish-Italic.ttf")
-        .expect("Failed to read IMFellEnglish-Italic.ttf");
-
-    let mut fonts = egui::FontDefinitions::default();
-    fonts.font_data.insert(
-        "IMFellEnglish-Regular".to_string(),
-        egui::FontData::from_owned(regular).into(),
-    );
-    fonts.font_data.insert(
-        "IMFellEnglish-Italic".to_string(),
-        egui::FontData::from_owned(italic).into(),
-    );
-    fonts
-        .families
-        .entry(egui::FontFamily::Proportional)
-        .or_default()
-        .insert(0, "IMFellEnglish-Regular".to_string());
-
-    ctx.set_fonts(fonts);
-}
-
 pub fn register_ui_textures(
     mut contexts: EguiContexts,
     ui_assets: Res<UiAssets>,
@@ -56,7 +30,7 @@ pub fn register_ui_textures(
     commands.insert_resource(UiTextureIds { parchment });
 }
 
-pub fn apply_parchment_theme(ctx: &egui::Context) {
+pub fn apply_parchment_theme(ctx: &egui::Context, font_definitions: egui::FontDefinitions) {
     let mut visuals = egui::Visuals::light();
 
     visuals.panel_fill = egui::Color32::TRANSPARENT;
@@ -74,5 +48,6 @@ pub fn apply_parchment_theme(ctx: &egui::Context) {
     visuals.window_stroke = egui::Stroke::new(2.0, egui::Color32::from_rgb(80, 55, 30));
     visuals.window_corner_radius = egui::CornerRadius::same(20);
 
+    ctx.set_fonts(font_definitions);
     ctx.set_visuals(visuals);
 }

@@ -1,19 +1,25 @@
 use crate::map::province::{HoveredProvince, ProvinceMap, SelectedProvince};
 use crate::map::screen_to_geo;
 use bevy::prelude::*;
-use bevy::render::render_asset::RenderAssets;
-use bevy::window::PrimaryWindow;
+use bevy_egui::EguiContexts;
 
 pub fn province_picking_system(
+    mut egui: EguiContexts,
     windows: Query<&Window>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
-    // lookup_image: Res<LookupImage>, // handle to your lookup PNG
-    // images: Res<Assets<Image>>,
     mut hovered: ResMut<HoveredProvince>,
     mut selected: ResMut<SelectedProvince>,
     mouse: Res<ButtonInput<MouseButton>>,
     registry: Res<ProvinceMap>,
 ) {
+    // Don't pick provinces when egui is handling the pointer
+    if egui
+        .ctx_mut()
+        .map(|ctx| ctx.wants_pointer_input())
+        .unwrap_or(false)
+    {
+        return;
+    }
     let Ok(window) = windows.single() else {
         return;
     };

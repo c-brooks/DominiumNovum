@@ -1,12 +1,16 @@
 // src/main.rs
+mod action_queue;
 mod dom_ui;
 mod inputevents;
 mod map;
+mod player;
 
+use action_queue::*;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_prototype_lyon::prelude::*;
+use dom_ui::DomUIPlugin;
 use inputevents::*;
 use map::MapPlugin;
 
@@ -25,16 +29,16 @@ fn main() -> AppExit {
             ShapePlugin,           // bevy_prototype_lyon
             EguiPlugin::default(), // bevy_egui
             InputPlugin,
-            MapPlugin, // our map plugin
+            MapPlugin,
+            DomUIPlugin,
         ))
+        .init_resource::<WeekQueue>()
         .add_systems(
             Startup,
             (
                 map::setup_camera,
-                dom_ui::assets::load_ui_assets,
-                dom_ui::setup_egui_theme,
-                dom_ui::assets::register_ui_textures,
-                dom_ui::assets::register_ui_fonts,
+                player::spawn_player,
+                player::spawn_player_marker,
             )
                 .chain(),
         )

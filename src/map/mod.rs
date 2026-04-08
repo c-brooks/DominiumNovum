@@ -9,6 +9,7 @@ use crate::dom_ui::*;
 use crate::inputevents::{InputAction, InputEvent};
 use crate::map::render::setup_map_layers;
 use crate::map::render::setup_towns;
+use crate::player;
 use bevy::prelude::Camera2d;
 use bevy::prelude::*;
 use geo::{BoundingRect, Centroid, LineString, Polygon};
@@ -22,6 +23,7 @@ impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectedProvince>()
             .init_resource::<HoveredProvince>()
+            .init_resource::<player::HoveredPlayer>()
             .add_systems(
                 Startup,
                 (
@@ -37,7 +39,7 @@ impl Plugin for MapPlugin {
                 (
                     picking::province_picking_system,
                     render::update_province_colours,
-                    selected_province_ui,
+                    player::player_hover_system,
                 ),
             );
     }
@@ -47,8 +49,11 @@ pub fn load_towns(mut commands: Commands) {
     // Placeholder for town loading logic
     // You would parse a GeoJSON of towns and spawn entities similarly to provinces
     // For now, this is just a stub
+
+    println!("Working dir: {:?}", std::env::current_dir());
+
     let geojson_str =
-        std::fs::read_to_string("towns.geojson").expect("could not read towns.geojson");
+        std::fs::read_to_string("assets/towns.geojson").expect("could not read towns.geojson");
     let geojson: GeoJson = geojson_str.parse().expect("Could not parse towns.geojson");
 
     let feature_collection = match geojson {
@@ -98,8 +103,8 @@ fn parse_town_feature(feature: Feature, id: u32) -> Option<TownDef> {
 }
 
 pub fn load_province_map(mut commands: Commands) {
-    let geojson_str =
-        std::fs::read_to_string("political.geojson").expect("Could not read political.geojson");
+    let geojson_str = std::fs::read_to_string("assets/political.geojson")
+        .expect("Could not read political.geojson");
 
     let geojson: GeoJson = geojson_str
         .parse()

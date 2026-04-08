@@ -41,6 +41,11 @@ impl ProvinceMap {
     pub fn get(&self, id: u32) -> Option<&ProvinceDef> {
         self.provinces.iter().find(|p| p.id == id)
     }
+
+    pub fn province_centroid_screen_pos(&self, id: u32) -> Option<bevy::prelude::Vec2> {
+        self.get(id)
+            .map(|p| crate::map::geo_to_screen(p.centroid.0, p.centroid.1))
+    }
 }
 
 // Bevy component — attached to each province shape entity
