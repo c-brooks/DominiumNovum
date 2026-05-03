@@ -4,13 +4,24 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.18.1", features = ["dynamic_linking"] }
+# dynamic_linking is excluded here — it breaks WASM builds.
+# Use --features native (or dev) for native fast iteration.
+bevy = { version = "0.18.1" }
 bevy_egui = "0.39.1"
 bevy_prototype_lyon = "0.16.0"
 geo = "0.32.0"
 geojson = "1.0.0"
+petgraph = "0.8.3"
 rand = "0.10.0"
 serde = "1.0.228"
+
+# WASM-specific — three separate semver-incompatible getrandom versions exist in the tree.
+# Each needs its WASM backend feature enabled explicitly.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+getrandom_04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]
@@ -21,4 +32,6 @@ opt-level = 1
 opt-level = 3
 
 [features]
+default = []
 dev = ["bevy/dynamic_linking", "bevy/file_watcher", "bevy/asset_processor"]
+native = ["bevy/dynamic_linking"]

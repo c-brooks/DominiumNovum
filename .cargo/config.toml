@@ -1,3 +1,6 @@
 [target.x86_64-apple-darwin]
 linker = "/usr/local/opt/llvm/bin/clang"
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+[target.wasm32-unknown-unknown]
+runner = "wasm-server-runner"

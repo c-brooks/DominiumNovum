@@ -3,3 +3,6 @@
 **/*.ttf
 **/*.png
 **/*.jpg
+
+web/
+!web/index.html
