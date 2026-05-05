@@ -1,7 +1,6 @@
 /target
 
 **/*.ttf
-**/*.png
 **/*.jpg
 
 web/

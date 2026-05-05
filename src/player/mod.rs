@@ -74,6 +74,23 @@ pub fn spawn_player(mut commands: Commands) {
     ));
 }
 
+pub fn update_player_marker(
+    player_location: Query<&Location, (With<PlayerCharacter>, Changed<Location>)>,
+    mut markers: Query<&mut Transform, With<PlayerMarker>>,
+    province_map: Res<ProvinceMap>,
+) {
+    let Ok(location) = player_location.single() else {
+        return;
+    };
+    let Some(pos) = province_map.province_centroid_screen_pos(location.province_id) else {
+        return;
+    };
+    let Ok(mut transform) = markers.single_mut() else {
+        return;
+    };
+    transform.translation = Vec3::new(pos.x, pos.y, 10.0);
+}
+
 pub fn spawn_player_marker(
     mut commands: Commands,
     province_map: Res<ProvinceMap>,

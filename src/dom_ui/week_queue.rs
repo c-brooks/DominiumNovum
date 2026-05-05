@@ -4,13 +4,14 @@ use crate::action_queue::WeekQueue;
 use crate::action_queue::*;
 use crate::map::ProvinceMap;
 use crate::player::{Location, PlayerCharacter};
+use crate::ticker::clock::{DayEnded, ExecutionMode, GameClock, WeekEnded};
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
 
 pub fn week_queue_ui(
     mut contexts: EguiContexts,
     mut queue: ResMut<WeekQueue>,
-    mut player: Query<&mut Location, With<PlayerCharacter>>,
+    mut clock: ResMut<GameClock>,
     province_map: Res<ProvinceMap>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
@@ -27,7 +28,10 @@ pub fn week_queue_ui(
 
                         let travel_text = match action {
                             QueuedAction::Idle => "—".to_string(),
-                            QueuedAction::Travel { to_province } => province_map
+                            QueuedAction::Travel {
+                                to_province,
+                                arriving: _,
+                            } => province_map
                                 .get(*to_province)
                                 .map(|p| format!("-> {}", p.name))
                                 .unwrap_or("-> ?".to_string()),
@@ -68,8 +72,11 @@ pub fn week_queue_ui(
 
                 // Buttons row
                 ui.horizontal(|ui| {
-                    if ui.button("▶ Step").clicked() {
-                        step_queue(&mut queue, &mut player);
+                    if ui.button("▶ Play").clicked() {
+                        clock.execution_mode = ExecutionMode::Playing;
+                    }
+                    if ui.button("-> Step").clicked() {
+                        clock.execution_mode = ExecutionMode::Stepping;
                     }
 
                     if ui.button("✕ Clear").clicked() {
@@ -80,26 +87,35 @@ pub fn week_queue_ui(
         });
 }
 
-fn step_queue(queue: &mut WeekQueue, player: &mut Query<&mut Location, With<PlayerCharacter>>) {
-    if queue.current_day >= 7 {
-        return;
-    }
-
-    let action = queue.days[queue.current_day].clone();
-
-    match action {
-        QueuedAction::Travel { to_province } => {
-            if let Ok(mut location) = player.single_mut() {
-                location.province_id = to_province;
-            }
+pub fn execute_queued_action(
+    mut day_reader: MessageReader<DayEnded>,
+    mut week_reader: MessageReader<WeekEnded>,
+    mut queue: ResMut<WeekQueue>,
+    mut player: Query<&mut Location, With<PlayerCharacter>>,
+) {
+    for event in day_reader.read() {
+        let day_idx = event.day_of_week as usize;
+        if day_idx >= queue.days.len() {
+            continue;
         }
-        QueuedAction::Idle => {}
+
+        queue.current_day = day_idx;
+
+        let action = queue.days[day_idx].clone();
+        match action {
+            QueuedAction::Travel {
+                to_province,
+                arriving: true,
+            } => {
+                if let Ok(mut location) = player.single_mut() {
+                    location.province_id = to_province;
+                }
+            }
+            _ => {}
+        }
     }
 
-    queue.current_day += 1;
-
-    // Reset when week is done
-    if queue.current_day >= 7 {
+    for _ in week_reader.read() {
         *queue = WeekQueue::default();
     }
 }

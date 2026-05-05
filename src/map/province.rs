@@ -20,6 +20,7 @@ pub struct ProvinceDef {
     pub bbox: Rect<f64>,
     pub centroid: (f64, f64),
     pub base_colour: Color,
+    pub travel_days: u8, // days to enter this province (1=sea, 2=land, 3=mountain)
 }
 
 // Bevy resource holding all provinces

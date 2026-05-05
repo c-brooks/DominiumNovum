@@ -40,20 +40,14 @@ impl Plugin for MapPlugin {
                     picking::province_picking_system,
                     render::update_province_colours,
                     player::player_hover_system,
+                    player::update_player_marker,
                 ),
             );
     }
 }
 
 pub fn load_towns(mut commands: Commands) {
-    // Placeholder for town loading logic
-    // You would parse a GeoJSON of towns and spawn entities similarly to provinces
-    // For now, this is just a stub
-
-    println!("Working dir: {:?}", std::env::current_dir());
-
-    let geojson_str =
-        std::fs::read_to_string("assets/towns.geojson").expect("could not read towns.geojson");
+    let geojson_str = include_str!("../../assets/towns.geojson");
     let geojson: GeoJson = geojson_str.parse().expect("Could not parse towns.geojson");
 
     let feature_collection = match geojson {
@@ -103,8 +97,7 @@ fn parse_town_feature(feature: Feature, id: u32) -> Option<TownDef> {
 }
 
 pub fn load_province_map(mut commands: Commands) {
-    let geojson_str = std::fs::read_to_string("assets/political.geojson")
-        .expect("Could not read political.geojson");
+    let geojson_str = include_str!("../../assets/political.geojson");
 
     let geojson: GeoJson = geojson_str
         .parse()
@@ -123,8 +116,54 @@ pub fn load_province_map(mut commands: Commands) {
         }
     }
 
+    compute_neighbors(&mut provinces);
     println!("Loaded {} provinces", provinces.len());
     commands.insert_resource(ProvinceMap { provinces });
+}
+
+// After all provinces are loaded, compute neighbors by finding provinces that share
+// boundary vertices. QGIS exports use exact shared coordinates along common borders,
+// so this is reliable and runs in O(N×V) — one pass to build the vertex map, one to read it.
+fn compute_neighbors(provinces: &mut Vec<ProvinceDef>) {
+    use std::collections::HashMap;
+
+    // Round to 5 decimal places (~1m precision) to key on shared vertices.
+    let quantize = |v: f64| (v * 100_000.0).round() as i64;
+
+    // Map each vertex → list of province IDs whose boundary passes through it.
+    let mut vertex_to_provinces: HashMap<(i64, i64), Vec<u32>> = HashMap::new();
+    for province in provinces.iter() {
+        for coord in province.polygon.exterior().coords() {
+            let key = (quantize(coord.x), quantize(coord.y));
+            vertex_to_provinces
+                .entry(key)
+                .or_default()
+                .push(province.id);
+        }
+    }
+
+    // Build adjacency: provinces sharing ≥1 vertex are neighbors.
+    // Use a HashSet per province to avoid duplicate edges.
+    let mut adjacency: HashMap<u32, std::collections::HashSet<u32>> = HashMap::new();
+    for province_ids in vertex_to_provinces.values() {
+        if province_ids.len() < 2 {
+            continue;
+        }
+        for i in 0..province_ids.len() {
+            for j in (i + 1)..province_ids.len() {
+                let a = province_ids[i];
+                let b = province_ids[j];
+                adjacency.entry(a).or_default().insert(b);
+                adjacency.entry(b).or_default().insert(a);
+            }
+        }
+    }
+
+    for province in provinces.iter_mut() {
+        if let Some(neighbors) = adjacency.remove(&province.id) {
+            province.neighbors = neighbors.into_iter().collect();
+        }
+    }
 }
 
 fn parse_province_feature(feature: Feature) -> Option<ProvinceDef> {
@@ -134,16 +173,6 @@ fn parse_province_feature(feature: Feature) -> Option<ProvinceDef> {
     let id = props.get("AA_ID")?.as_u64()? as u32;
 
     let name = props.get("AA_NAME")?.as_str()?.to_string();
-
-    let neighbors = props
-        .get("neighbors")
-        .and_then(|v| v.as_str())
-        .map(|s| {
-            s.split(',')
-                .filter_map(|n| n.trim().parse::<u32>().ok())
-                .collect()
-        })
-        .unwrap_or_default();
 
     // Extract polygon geometry
     let geometry = feature.geometry?;
@@ -160,11 +189,12 @@ fn parse_province_feature(feature: Feature) -> Option<ProvinceDef> {
     Some(ProvinceDef {
         id,
         name,
-        neighbors,
+        neighbors: vec![],
         bbox,
         polygon,
         centroid,
         base_colour: Color::WHITE, // default color, will be randomized in render setup
+        travel_days: 1,
     })
 }
 

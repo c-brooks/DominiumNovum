@@ -1,7 +1,11 @@
+use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 // Removed incorrect import: use bevy::text::FontSource;
 use bevy::text::*;
+use bevy_egui::EguiTextureHandle;
 use bevy_egui::{EguiContexts, egui};
+
+use crate::buildings::BuildingKind;
 
 #[derive(Resource)]
 pub struct UiAssets {
@@ -13,7 +17,26 @@ pub struct UiTextureIds {
     pub parchment: egui::TextureId,
 }
 
+#[derive(Resource)]
+pub struct BuildingTextureIds(pub HashMap<BuildingKind, egui::TextureId>);
+
+#[derive(Resource)]
+pub struct BuildingIconAssets(pub HashMap<BuildingKind, Handle<Image>>);
+
 pub fn load_ui_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let mut icons = HashMap::new();
+    icons.insert(BuildingKind::Farm, asset_server.load("buildings/farm.png"));
+    icons.insert(BuildingKind::Mine, asset_server.load("buildings/mine.png"));
+    icons.insert(
+        BuildingKind::Sawmill,
+        asset_server.load("buildings/sawmill.png"),
+    );
+    icons.insert(
+        BuildingKind::Barracks,
+        asset_server.load("buildings/barracks.png"),
+    );
+    commands.insert_resource(BuildingIconAssets(icons));
+
     commands.insert_resource(UiAssets {
         parchment: asset_server.load("parchment.png"),
     });
@@ -22,12 +45,21 @@ pub fn load_ui_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
 pub fn register_ui_textures(
     mut contexts: EguiContexts,
     ui_assets: Res<UiAssets>,
+    building_icons: Res<BuildingIconAssets>,
     mut commands: Commands,
 ) {
-    let parchment = contexts.add_image(bevy_egui::EguiTextureHandle::Strong(
-        ui_assets.parchment.clone(),
-    ));
+    let parchment = contexts.add_image(EguiTextureHandle::Strong(ui_assets.parchment.clone()));
     commands.insert_resource(UiTextureIds { parchment });
+
+    let ids = building_icons
+        .0
+        .iter()
+        .map(|(&kind, handle)| {
+            let id = contexts.add_image(EguiTextureHandle::Strong(handle.clone()));
+            (kind, id)
+        })
+        .collect();
+    commands.insert_resource(BuildingTextureIds(ids));
 }
 
 pub fn apply_parchment_theme(ctx: &egui::Context, font_definitions: egui::FontDefinitions) {

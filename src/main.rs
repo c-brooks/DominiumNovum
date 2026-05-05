@@ -1,18 +1,22 @@
 // src/main.rs
 mod action_queue;
+mod buildings;
 mod dom_ui;
 mod inputevents;
 mod map;
 mod player;
+mod ticker;
 
 use action_queue::*;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_prototype_lyon::prelude::*;
+use buildings::BuildingsPlugin;
 use dom_ui::DomUIPlugin;
 use inputevents::*;
 use map::MapPlugin;
+use ticker::TickerPlugin;
 
 fn main() -> AppExit {
     App::new()
@@ -33,6 +37,8 @@ fn main() -> AppExit {
             InputPlugin,
             MapPlugin,
             DomUIPlugin,
+            BuildingsPlugin,
+            TickerPlugin,
         ))
         .init_resource::<WeekQueue>()
         .add_systems(

@@ -24,7 +24,7 @@ cargo build --release
 
 ```
 src/
-  main.rs              # App entry, plugin registration
+  main.rs              # App entry, plugin registration, WeekQueue resource init
   inputevents/         # Keyboard, mouse, scroll input → InputEvent messages
     mod.rs             # InputPlugin, InputEvent, InputAction enums
     systems.rs         # Input handler systems (handle_input, handle_mouse_drag)
@@ -36,9 +36,12 @@ src/
     render.rs          # setup_map_layers, update_province_colours, towns rendering
   player/              # Player character, location, markers
     mod.rs             # PlayerCharacter, Location, player_hover_system, spawn systems
+  action_queue/        # Turn-based action planning
+    mod.rs             # WeekQueue resource, QueuedAction enum (Travel | Idle)
   dom_ui/              # Egui-based UI with parchment theme
     mod.rs             # DomUIPlugin, province info panel, player tooltip
     assets.rs          # Font loading, texture registration, theme styling
+    week_queue.rs      # week_queue_ui system — 7-day plan panel, Step/Clear buttons
 ```
 
 ## Architecture Overview
@@ -50,8 +53,9 @@ Dominium is a map-based strategy game with Bevy 0.18.1 as its core engine. The a
 **Core Plugins:**
 - `InputPlugin` — captures input (keyboard, mouse, scroll) and sends `InputEvent` messages
 - `MapPlugin` — loads provinces/towns, manages camera, handles spatial queries for picking
-- `DomUIPlugin` — renders UI panels (province info, player tooltips) using egui
+- `DomUIPlugin` — renders UI panels (province info, player tooltips, week queue) using egui
 - Plus Bevy's defaults: `EguiPlugin`, `ShapePlugin` (lyon), `FrameTimeDiagnosticsPlugin`
+- `WeekQueue` resource initialized directly in `main.rs` via `.init_resource::<WeekQueue>()`
 
 ### Data Flow
 
@@ -86,7 +90,7 @@ update_province_colours / UI systems react to selection/hover state
   - `update_province_colours` — update visuals based on hover/select state
   - `camera_system` — process camera input messages
   - `player_hover_system` — detect cursor proximity to player marker
-- `DomUIPlugin`: `selected_province_ui`, `player_hover_ui` (run independently)
+- `DomUIPlugin`: `selected_province_ui`, `player_hover_ui`, `week_queue_ui` (run independently)
 
 ## Coordinate Systems
 
@@ -160,10 +164,28 @@ Camera viewport is clamped to map bounds at the end of `camera_system`:
 - Bevy image → `contexts.add_image()` → `egui::TextureId`
 - Must happen after image asset is loaded (chained after `load_ui_assets`)
 
-**UI panels** (province info, player tooltip):
+**UI panels** (province info, player tooltip, week queue):
 - Province panel: `egui::Area` anchored at RIGHT_BOTTOM, fixed 300×150
 - Paints shadow → parchment texture → text overlay using `scope_builder` with `max_rect`
 - Player tooltip: follows cursor with `pointer_hover_pos()`, uses `Frame::popup()`
+- Week queue panel: fixed position `(100.0, 800.0)`, shows 7-day slots; "Step" advances one day and executes queued action, "Clear" resets the queue
+
+### Action Queue (Week Planning)
+
+`WeekQueue` (in `action_queue/mod.rs`) is a resource holding 7 slots, one per day of the week. Each slot holds a `QueuedAction`:
+
+```rust
+enum QueuedAction {
+    Travel(province_id),
+    Idle,
+}
+```
+
+The `week_queue_ui` system in `dom_ui/week_queue.rs` renders the queue panel and provides:
+- **Step**: advances the current day and executes the queued action (e.g. moves the player to the target province)
+- **Clear**: resets all 7 slots to `Idle`
+
+Province selection in `selected_province_ui` can enqueue a `Travel` action for the selected province.
 
 ### Input Handling
 
@@ -203,9 +225,10 @@ eprintln!("Testing point ({}, {}) against {} provinces", lon, lat, registry.prov
 
 ## Known Constraints and Quirks
 
-- **Window resolution**: Hard-coded to 1400×900 in `main.rs` and camera/clamping logic
+- **Window resolution**: Hard-coded to 1400×900 in three places: `main.rs` and two sites in `map/mod.rs` (`camera_system`). All three must be updated together.
 - **GeoJSON loading**: Expects specific property names (`AA_ID`, `AA_NAME`, `neighbors` for provinces; `ADMIN_AREA_NAME` for towns)
 - **Terrain background**: Rendered as a sprite at world origin; adjust bounds in `setup_map_layers` if map extents change
+- **Town rendering**: `setup_towns` exists in `render.rs` but is currently commented out in the startup chain — town data loads but no town entities are spawned
 - **egui in Startup**: Cannot use async asset loading; all font files must exist at startup
 - **Camera scale vs. projection scale**: Always use `transform.scale`, never `projection.scale` (which is always 1.0)
 
