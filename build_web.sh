@@ -14,7 +14,10 @@ wasm-bindgen \
 
 if command -v wasm-opt &>/dev/null; then
     echo "Optimizing..."
-    wasm-opt -Oz web/dominum_bg.wasm -o web/dominum_bg.wasm
+    # --all-features: recent rustc emits bulk-memory (and other) wasm instructions
+    # by default for wasm32-unknown-unknown; wasm-opt validates against a stricter
+    # default feature set otherwise and rejects the module.
+    wasm-opt -Oz --all-features web/dominum_bg.wasm -o web/dominum_bg.wasm
 else
     echo "Skipping wasm-opt (not installed)"
 fi
