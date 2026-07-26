@@ -29,8 +29,11 @@ jobs:
           curl -fsSL -o assets/fonts/IMFellEnglish-Regular.ttf \
             https://raw.githubusercontent.com/google/fonts/main/ofl/imfellenglish/IMFeENrm28P.ttf
 
+      # Pinned (not @stable) so a future Rust release can't silently change
+      # the default wasm target-features out from under the wasm-opt flags
+      # below. Bump deliberately, together with those flags, when needed.
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.97.1
         with:
           targets: wasm32-unknown-unknown
 
