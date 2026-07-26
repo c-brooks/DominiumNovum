@@ -41,15 +41,9 @@ fn main() -> AppExit {
             TickerPlugin,
         ))
         .init_resource::<WeekQueue>()
-        .add_systems(
-            Startup,
-            (
-                map::setup_camera,
-                player::spawn_player,
-                player::spawn_player_marker,
-            )
-                .chain(),
-        )
+        .add_systems(Startup, (map::setup_camera, player::spawn_player).chain())
+        // Runs once political.geojson/towns.geojson have loaded and ProvinceMap exists.
+        .add_systems(OnEnter(map::MapLoadState::Ready), player::spawn_player_marker)
         .add_systems(Update, map::camera_system)
         .run()
 }

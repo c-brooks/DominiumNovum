@@ -11,6 +11,7 @@ use crate::dom_ui::assets::load_ui_assets;
 use crate::dom_ui::assets::register_ui_textures;
 use crate::dom_ui::clock_ui::clock_ui;
 use crate::dom_ui::week_queue::{execute_queued_action, week_queue_ui};
+use crate::map::MapLoadState;
 use crate::map::ProvinceMap;
 use crate::map::province::SelectedProvince;
 use crate::player::CharacterIdentity;
@@ -36,9 +37,9 @@ impl Plugin for DomUIPlugin {
         .add_systems(
             EguiPrimaryContextPass,
             (
-                selected_province_ui,
+                selected_province_ui.run_if(in_state(MapLoadState::Ready)),
                 player_hover_ui,
-                week_queue_ui,
+                week_queue_ui.run_if(in_state(MapLoadState::Ready)),
                 clock_ui,
             ),
         )
