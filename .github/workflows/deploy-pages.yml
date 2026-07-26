@@ -1,0 +1,79 @@
+name: Deploy web build to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # assets/fonts/*.ttf is gitignored (not committed) — fetch the OFL-licensed
+      # font from Google Fonts' repo so the include_bytes!() in dom_ui/mod.rs
+      # has something to embed at compile time.
+      - name: Fetch font
+        run: |
+          mkdir -p assets/fonts
+          curl -fsSL -o assets/fonts/IMFellEnglish-Regular.ttf \
+            https://raw.githubusercontent.com/google/fonts/main/ofl/imfellenglish/IMFeENrm28P.ttf
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo/target
+        uses: Swatinem/rust-cache@v2
+
+      - name: Determine wasm-bindgen version
+        id: wasm_bindgen
+        run: |
+          VERSION=$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | grep version | head -1 | sed -E 's/version = "(.*)"/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache wasm-bindgen-cli binary
+        id: cache-wasm-bindgen
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/wasm-bindgen
+          key: wasm-bindgen-cli-${{ steps.wasm_bindgen.outputs.version }}
+
+      # Must match the wasm-bindgen crate version in Cargo.lock exactly, or the
+      # generated JS glue fails at runtime with a schema version mismatch.
+      - name: Install wasm-bindgen-cli
+        if: steps.cache-wasm-bindgen.outputs.cache-hit != 'true'
+        run: cargo install wasm-bindgen-cli --version "${{ steps.wasm_bindgen.outputs.version }}" --locked
+
+      - name: Install binaryen (wasm-opt)
+        run: sudo apt-get update && sudo apt-get install -y binaryen
+
+      - name: Build
+        run: ./build_web.sh
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
