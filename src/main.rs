@@ -27,6 +27,12 @@ fn main() -> AppExit {
                     resolution: (1400u32, 900u32).into(),
                     fit_canvas_to_parent: true,
                     prevent_default_event_handling: false,
+                    // Without this, winit creates its own <canvas> and appends
+                    // it to <body> instead of reusing the one already in
+                    // web/index.html — leaving the original empty canvas
+                    // stacked above the real one (a full screen-height of
+                    // blank space).
+                    canvas: Some("#bevy".to_string()),
                     ..default()
                 }),
                 ..default()
